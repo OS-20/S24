@@ -1,66 +1,96 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/wait.h>
-#include <ctype.h>
+#include<stdio.h>
+#include<sys/types.h>
+#include<sys/stat.h>
+#include<fcntl.h>
+#include<stdlib.h>
+#include<unistd.h>
+#include<string.h>
+#include<sys/wait.h>
 
-void count_chars(char *filename) {
-    FILE *fp = fopen(filename, "r");
-    if(!fp){ printf("File not found!\n"); return; }
-    int c, count=0;
-    while((c=fgetc(fp)) != EOF) count++;
-    fclose(fp);
-    printf("Characters: %d\n", count);
-}
-
-void count_words(char *filename) {
-    FILE *fp = fopen(filename, "r");
-    if(!fp){ printf("File not found!\n"); return; }
-    int c, count=0, inword=0;
-    while((c=fgetc(fp)) != EOF){
-        if(isspace(c)) inword=0;
-        else if(!inword){ inword=1; count++; }
+void make_toks(char *s,char *tok[])
+{
+    int i=0;
+    char *p;
+    p=strtok(s," ");
+    while(p!=NULL)
+    {
+        tok[i++]=p;
+        p=strtok(NULL," ");
     }
-    fclose(fp);
-    printf("Words: %d\n", count);
+    tok[i]=NULL;
 }
 
-void count_lines(char *filename) {
-    FILE *fp = fopen(filename, "r");
-    if(!fp){ printf("File not found!\n"); return; }
-    int c, count=0;
-    while((c=fgetc(fp)) != EOF) if(c=='\n') count++;
-    fclose(fp);
-    printf("Lines: %d\n", count);
+void count(char *fn,char op)
+{
+    int fh,cc=0,wc=0,lc=0;
+    char c;
+    fh=open(fn,O_RDONLY);
+    if(fh==-1)
+    {
+        printf("\nfile %s not found\n",fn);
+        return;
+    }
+
+    while(read(fh,&c,1)>0)
+    {
+        
+        if(c==' ')
+            wc++;
+        if(c=='\n')
+            {
+            wc++;
+            lc++;
+            }
+            cc++;
+    }
+
+    close(fh);
+
+    switch(op)
+    {
+        case 'c':
+            printf("\nNo. of Characters : %d\n",cc);
+            break;
+
+        case 'w':
+            printf("\nNo. of Words : %d\n",wc + 1);
+            break;
+
+        case 'l':
+            printf("\nNo. of lines : %d\n",lc);
+            break;
+
+        default:
+            printf("\nInvalid option. Use c, w, or l.\n");
+    }
 }
 
-int main() {
-    char input[100], *arg[5];
-
-    while(1) {
-        printf("myshell$ ");
-        if(!fgets(input, sizeof(input), stdin)) break;
-
-        int i=0;
-        arg[i] = strtok(input, " \t\n");
-        if(!arg[i]) continue;
-        while((arg[++i] = strtok(NULL, " \t\n")));
-
-        if(!strcmp(arg[0], "exit")) break;
-        else if(!strcmp(arg[0], "count") && arg[1] && arg[2]){
-            if(arg[1][0]=='c') count_chars(arg[2]);
-            else if(arg[1][0]=='w') count_words(arg[2]);
-            else if(arg[1][0]=='l') count_lines(arg[2]);
-            else printf("Unknown count option!\n");
-        }
-        else {
-            if(fork()==0){
-                execvp(arg[0], arg);
-                perror("Command failed");
-                exit(1);
-            } else wait(NULL);
+int main()
+{
+    char buff[80],*args[10];
+    int pid;
+    while(1)
+    {
+        printf("Myshell$");
+        fflush(stdin);
+        fgets(buff,80,stdin);
+        buff[strlen(buff)-1]='\0';
+        make_toks(buff,args);
+        if(strcmp(args[0],"count")==0)
+            count(args[2],args[1][0]);
+        else
+        {
+            pid=fork();
+            if(pid>0)
+                wait(NULL);
+            else
+            {
+                if((execvp(args[0],args)==-1))
+                    printf("Bad Command\n");
+            }
         }
     }
     return 0;
-}
+    }
+
+
